@@ -1,20 +1,35 @@
 package com.yoavs.flickerbrowser
 
-
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.support.v7.app.AppCompatActivity
+import android.preference.PreferenceManager
 import android.support.v7.widget.LinearLayoutManager
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
-import kotlinx.android.synthetic.main.activity_main.*
+import android.view.View
+import android.widget.Toast
 import kotlinx.android.synthetic.main.content_main.*
-import java.lang.Exception
 
 private const val TAG = "MainActivity"
 
-class MainActivity : AppCompatActivity(), GetRawData.OnDowloadComplete, GetFlickerJsonData.OnDataAvailable {
+class MainActivity : BaseActivity(), GetRawData.OnDowloadComplete, GetFlickerJsonData.OnDataAvailable,
+    RecyclerItemClickListener.OnRecyclerClickListener {
+    override fun onItemClick(view: View, position: Int) {
+        Log.d(tag(), "onItemClick starts")
+        Toast.makeText(this, "Item Normal Click", Toast.LENGTH_SHORT).show()
+    }
+
+    override fun onItemLongClick(view: View, position: Int) {
+        Log.d(tag(), "onItemLongClick starts")
+        val photo = flickrRecycleViewAdapter.getPhoto(position)
+        if(photo != null){
+            val intent = Intent(this, PhotoDetailActivity::class.java)
+            intent.putExtra(PHOTO_TRANSFER, photo)
+            startActivity(intent)
+        }
+    }
 
     private val flickrRecycleViewAdapter = FlickrRecyclerViewAdapter(ArrayList())
 
@@ -22,14 +37,11 @@ class MainActivity : AppCompatActivity(), GetRawData.OnDowloadComplete, GetFlick
         Log.d(TAG, "onCreate called")
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        setSupportActionBar(toolbar)
+        activateToolbar(false)
 
         recycler_view.layoutManager = LinearLayoutManager(this)
+        recycler_view.addOnItemTouchListener(RecyclerItemClickListener(this, recycler_view, this))
         recycler_view.adapter = flickrRecycleViewAdapter
-
-        val getRawData = GetRawData(this)
-        val url = createUri()
-        getRawData.execute(url)
 
         Log.d(TAG, "onCreate ends")
 
@@ -59,7 +71,10 @@ class MainActivity : AppCompatActivity(), GetRawData.OnDowloadComplete, GetFlick
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
         return when (item.itemId) {
-            R.id.action_settings -> true
+            R.id.action_search -> {
+                startActivity(Intent(this, SearchActivity::class.java))
+                true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -83,4 +98,22 @@ class MainActivity : AppCompatActivity(), GetRawData.OnDowloadComplete, GetFlick
     override fun onError(exception: Exception) {
         Log.d(TAG, "onError called with exception ${exception.message}")
     }
+
+    override fun onResume() {
+        Log.d(tag(), "onResume starts")
+        super.onResume()
+
+        val sharedPreference = PreferenceManager.getDefaultSharedPreferences(applicationContext)
+        val queryResult:String = sharedPreference.getString(FLICKR_QUERY, "")
+
+        if(queryResult.isNotEmpty()){
+            val getRawData = GetRawData(this)
+            val url = createUri(queryResult)
+            getRawData.execute(url)
+        }
+
+        Log.d(tag(), "onResume ends")
+    }
+
+
 }
